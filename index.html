@@ -10,12 +10,13 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* As chaves do Supabase sao carregadas do localStorage.
-   No primeiro uso, clique em "Configurar Chaves" na tela de login.
-   A chave Gemini fica no Cloudflare Worker (proxy seguro). */
-var SUPABASE_URL = localStorage.getItem('supa_url') || '';
-var SUPABASE_ANON_KEY = localStorage.getItem('supa_key') || '';
+/* As chaves sao carregadas do Cloudflare Worker.
+   Nao precisa configurar nada - ja funciona. */
+var SUPABASE_URL = '';
+var SUPABASE_ANON_KEY = '';
 var GEMINI_WORKER_URL = 'https://jaf-crm-gemini-proxy.joseailton-ailtontinho.workers.dev/';
+
+async function carregarConfig(){try{var r=await fetch(GEMINI_WORKER_URL+'config');var d=await r.json();SUPABASE_URL=d.supabaseUrl;SUPABASE_ANON_KEY=d.supabaseAnonKey;localStorage.setItem('supa_url',d.supabaseUrl);localStorage.setItem('supa_key',d.supabaseAnonKey)}catch(e){SUPABASE_URL=localStorage.getItem('supa_url')||'';SUPABASE_ANON_KEY=localStorage.getItem('supa_key')||''}}
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -304,7 +305,7 @@ function getTable(t){return cacheData[t]||[]}
 /* Dark mode */
 function toggleDark(){document.body.classList.toggle('dark');try{localStorage.setItem('jaf31_dark',document.body.classList.contains('dark')?'1':'0')}catch(e){}}
 function loadDark(){try{if(localStorage.getItem('jaf31_dark')==='1')document.body.classList.add('dark')}catch(e){}}
-document.addEventListener('DOMContentLoaded',function(){if(!SUPABASE_URL||location.hash==='#config')setTimeout(showConfig,300)})
+document.addEventListener('DOMContentLoaded',async function(){await carregarConfig();if(!SUPABASE_URL&&!localStorage.getItem('supa_url')){showConfig()}else{if(!SUPABASE_URL){SUPABASE_URL=localStorage.getItem('supa_url');SUPABASE_ANON_KEY=localStorage.getItem('supa_key')}}})
 function showConfig(){document.getElementById('cfg-supa-url').value=localStorage.getItem('supa_url')||'';document.getElementById('cfg-supa-key').value=localStorage.getItem('supa_key')||'';document.getElementById('modal-config').style.display='flex'}
 function salvarConfig(){localStorage.setItem('supa_url',document.getElementById('cfg-supa-url').value.trim());localStorage.setItem('supa_key',document.getElementById('cfg-supa-key').value.trim());SUPABASE_URL=localStorage.getItem('supa_url');SUPABASE_ANON_KEY=localStorage.getItem('supa_key');document.getElementById('modal-config').style.display='none';toast('Chaves salvas com sucesso!')}
 
