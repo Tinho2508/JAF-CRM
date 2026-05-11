@@ -304,6 +304,7 @@ function getTable(t){return cacheData[t]||[]}
 /* Dark mode */
 function toggleDark(){document.body.classList.toggle('dark');try{localStorage.setItem('jaf31_dark',document.body.classList.contains('dark')?'1':'0')}catch(e){}}
 function loadDark(){try{if(localStorage.getItem('jaf31_dark')==='1')document.body.classList.add('dark')}catch(e){}}
+if(!SUPABASE_URL)setTimeout(showConfig,500)
 function showConfig(){document.getElementById('cfg-supa-url').value=localStorage.getItem('supa_url')||'';document.getElementById('cfg-supa-key').value=localStorage.getItem('supa_key')||'';document.getElementById('modal-config').style.display='flex'}
 function salvarConfig(){localStorage.setItem('supa_url',document.getElementById('cfg-supa-url').value.trim());localStorage.setItem('supa_key',document.getElementById('cfg-supa-key').value.trim());SUPABASE_URL=localStorage.getItem('supa_url');SUPABASE_ANON_KEY=localStorage.getItem('supa_key');document.getElementById('modal-config').style.display='none';toast('Chaves salvas com sucesso!')}
 
