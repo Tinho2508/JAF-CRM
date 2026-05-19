@@ -67,7 +67,10 @@ with app.app_context():
 @app.route("/webhook/whatsapp", methods=["POST"])
 def webhook_whatsapp():
     try:
-        raw = request.get_json(force=True, silent=True) or {}
+        if request.form:
+            raw = dict(request.form)
+        else:
+            raw = request.get_json(force=True, silent=True) or {}
         logger.info(f"Webhook recebido: {json.dumps(raw, ensure_ascii=False)[:500]}")
 
         parsed = parse_webhook(raw)
