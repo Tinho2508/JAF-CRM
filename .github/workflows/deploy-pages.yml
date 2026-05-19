@@ -3,6 +3,7 @@ on:
   push:
     branches: [master]
     paths: ['frontend/**']
+  workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
