@@ -195,6 +195,24 @@ def get_message(message_id):
 # API - marcar como lida
 # ---------------------------------------------------------------------------
 
+@app.route("/api/messages/<message_id>", methods=["DELETE"])
+def delete_message(message_id):
+    try:
+        get_supabase().table("whatsapp_messages").delete().eq("id", message_id).execute()
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        logger.error(f"Erro ao deletar mensagem {message_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/messages", methods=["DELETE"])
+def delete_all_messages():
+    try:
+        get_supabase().table("whatsapp_messages").delete().neq("id", "").execute()
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        logger.error(f"Erro ao deletar mensagens: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/messages/<message_id>/read", methods=["POST"])
 def mark_read(message_id):
     upsert_row("whatsapp_messages", {"id": message_id, "lido": True})
