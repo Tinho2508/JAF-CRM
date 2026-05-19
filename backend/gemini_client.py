@@ -38,10 +38,19 @@ Responda APENAS com JSON válido, sem formatação extra:
 """
 
 def _call_gemini(prompt: str) -> str:
-    url = urljoin(WORKER_URL, "gemini")
-    resp = requests.post(url, json={"prompt": prompt}, timeout=30)
+    url = WORKER_URL.rstrip("/") + "/"
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500},
+    }
+    resp = requests.post(url, json=body, timeout=30)
     resp.raise_for_status()
     data = resp.json()
+    candidates = data.get("candidates")
+    if candidates and len(candidates) > 0:
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if parts:
+            return parts[0].get("text", "")
     return data.get("response") or data.get("text") or resp.text
 
 def triage_message(telefone: str, mensagem: str) -> dict:
