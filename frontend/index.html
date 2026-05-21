@@ -276,6 +276,13 @@ body.dark .client360-tab.active{color:#e2e8f0}
 var RAMOS=['Automovel','Vida','Residencial','Empresarial','Saude','Dental','Viagem','Frota','Rural','RC Profissional','Garantia','Transporte'];
 var SEGURADORAS=['Porto Seguro','Bradesco Seguros','SulAmerica','Allianz','Tokio Marine','HDI','Liberty','Mapfre','Zurich','Generali'];
 var TABELAS=['clientes','apolices','leads','propostas','producao','sinistros','agenda'];
+var currentPage='dashboard';
+var clienteEdit=null,apoliceEdit=null,propostaEdit=null,leadEdit=null,producaoEdit=null,agendaEdit=null,sinistroEdit=null;
+var cacheData={};
+var searchTimeout=null;
+var PAGE_SIZE=99999;
+var _realtimeChannel=null;
+var pageState={};
 
 function toDateYM(d){if(!d)return '';if(d instanceof Date){if(isNaN(d.getTime()))return '';return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}var s=(d||'').toString().trim();if(!s)return '';var v=parseFloat(s);if(!isNaN(v)&&v>20000&&v<70000){var ep=new Date(1899,11,30);var dt=new Date(ep.getTime()+v*86400000);if(!isNaN(dt.getTime()))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')}if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s.substring(0,7);if(/^\d{4}-\d{2}$/.test(s))return s;if(/^\d{1,2}[\\/]\d{1,2}[\\/]\d{4}$/.test(s)){var pt=s.split(/[/\\/]/);return pt[2]+'-'+String(parseInt(pt[1])).padStart(2,'0')}if(/^\d{4}$/.test(s))return s;return s.substring(0,7)}
 function dateMatchesYM(dateVal,yr,mo){if(!dateVal)return false;if(dateVal instanceof Date){var dy=String(dateVal.getFullYear());var dm=String(dateVal.getMonth()+1).padStart(2,'0');return dy===yr&&(!mo||dm===mo)}var s=(dateVal||'').toString().trim();if(!s)return false;if(/^\d{4}-\d{2}-\d{2}$/.test(s)){var ds=s.split('-');if(ds[0]===yr&&(!mo||ds[1]===mo))return true}if(/^\d{1,2}[\\/]\d{1,2}[\\/]\d{4}$/.test(s)){var pt=s.split(/[/\\]/);var yy=pt[pt.length-1];var mm=String(parseInt(pt[1])).padStart(2,'0');if(yy===yr&&(!mo||mm===mo))return true}if(/^\d{1,2}[\\/]\d{4}$/.test(s)){var pt2=s.split(/[/\\]/);if(pt2[pt2.length-1]===yr&&(!mo||String(parseInt(pt2[0])).padStart(2,'0')===mo))return true}if(/^\d{4}-\d{2}$/.test(s)){var ds2=s.split('-');if(ds2[0]===yr&&(!mo||ds2[1]===mo))return true}if(/^\d{4}$/.test(s)&&s===yr&&!mo)return true;return false}
