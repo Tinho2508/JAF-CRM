@@ -3,7 +3,7 @@
 -- Execute no SQL Editor do Supabase
 -- =============================================
 
--- Helper: drop existing policy if any, then create
+-- Helper: drop old policies, create per-operation policies
 DO $$
 DECLARE
     tbl text;
@@ -12,7 +12,15 @@ BEGIN
     FOREACH tbl IN ARRAY tables
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+        -- Drop old policy if exists (FOR ALL without WITH CHECK)
         EXECUTE format('DROP POLICY IF EXISTS "Allow authenticated all" ON %I;', tbl);
-        EXECUTE format('CREATE POLICY "Allow authenticated all" ON %I FOR ALL USING (auth.role() = ''authenticated'');', tbl);
+        -- SELECT
+        EXECUTE format('CREATE POLICY "auth_select" ON %I FOR SELECT USING (auth.role() = ''authenticated'');', tbl);
+        -- INSERT
+        EXECUTE format('CREATE POLICY "auth_insert" ON %I FOR INSERT WITH CHECK (auth.role() = ''authenticated'');', tbl);
+        -- UPDATE
+        EXECUTE format('CREATE POLICY "auth_update" ON %I FOR UPDATE USING (auth.role() = ''authenticated'') WITH CHECK (auth.role() = ''authenticated'');', tbl);
+        -- DELETE
+        EXECUTE format('CREATE POLICY "auth_delete" ON %I FOR DELETE USING (auth.role() = ''authenticated'');', tbl);
     END LOOP;
 END $$;
