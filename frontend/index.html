@@ -227,6 +227,56 @@ body.dark .client360-tab.active{color:#e2e8f0}
 <div class="date-badge" id="date-badge"></div>
 					<div class="status-badge" onclick="sincronizar()"><div class="status-dot" id="status-dot"></div><span id="status-text">...</span></div>
 					
+				</div>
+</div>
+<div class="content" id="content"></div>
+</div>
+</div>
+<div id="gemini-fab" onclick="toggleGemini()">AI</div>
+<div id="gemini-bar" class="gemini-closed">
+<div class="gemini-header"><span>&#x1F916; Comando IA</span><button onclick="toggleGemini()">X</button></div>
+<div class="gemini-body"><div id="gemini-status" class="gemini-status"></div><div id="gemini-history"></div></div>
+<div class="gemini-input-row"><button id="gemini-mic" onclick="geminiStartVoice()" title="Comando de voz">&#x1F3A4;</button><input type="text" id="gemini-input" placeholder='Ex: "localiza joao silva"' onkeydown="if(event.key==='Enter')geminiCommand()"><button id="gemini-send" onclick="geminiCommand()">Enviar</button></div>
+</div>
+<div id="toast-container" class="toast-container"></div>
+<div id="confirm-overlay" class="confirm-overlay">
+<div class="confirm-box">
+<div class="confirm-title" id="confirm-title">Confirmar</div>
+<div class="confirm-msg" id="confirm-msg"></div>
+<div class="confirm-buttons"><button class="btn btn-outline btn-sm" onclick="closeConfirm()">Cancelar</button><button class="btn btn-danger btn-sm" id="confirm-yes">Confirmar</button></div>
+</div>
+</div>
+<div id="quick-search-overlay" onclick="if(event.target===this)closeQuickSearch()">
+<div id="quick-search-box">
+<input type="text" id="quick-search-input" style="width:100%;border:none;font-size:18px;padding:20px;border-bottom:1px solid var(--border);background:var(--card);color:var(--text)" placeholder="Buscar clientes, apolices, leads..." oninput="doQuickSearch(this.value)">
+<div id="quick-search-results" style="max-height:400px;overflow-y:auto"></div>
+</div>
+</div>
+<div id="modal-client360" class="modal-overlay">
+<div class="modal" style="max-width:800px">
+<div class="modal-header"><div class="modal-title" id="c360-title">Cliente 360</div><button class="modal-close" onclick="fecharModal('modal-client360')">X</button></div>
+<div class="modal-body" id="c360-body"></div>
+</div>
+</div>
+<div id="modal-wa" class="modal-overlay">
+<div class="modal" style="max-width:500px">
+<div class="modal-header"><div class="modal-title">Enviar WhatsApp</div><button class="modal-close" onclick="fecharModal('modal-wa')">X</button></div>
+<div class="modal-body">
+<div class="form-grid">
+<div class="form-group"><label class="form-label">Cliente</label><input class="form-input" id="wa-nome" readonly></div>
+<div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="wa-telefone" readonly></div>
+<div class="form-group full"><label class="form-label">Template</label><select class="form-select" id="wa-template" onchange="waPreview()"></select></div>
+<div class="form-group full"><label class="form-label">Mensagem</label><div id="wa-preview" style="padding:12px;background:var(--gray-100);border-radius:8px;font-size:13px;min-height:60px;white-space:pre-wrap"></div></div>
+</div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="fecharModal('modal-wa')">Cancelar</button><button class="btn btn-primary" id="wa-enviar">Enviar</button></div>
+</div>
+</div>
+<script>
+var RAMOS=['Automovel','Vida','Residencial','Empresarial','Saude','Dental','Viagem','Frota','Rural','RC Profissional','Garantia','Transporte'];
+var SEGURADORAS=['Porto Seguro','Bradesco Seguros','SulAmerica','Allianz','Tokio Marine','HDI','Liberty','Mapfre','Zurich','Generali'];
+var TABELAS=['clientes','apolices','leads','propostas','producao','sinistros','agenda'];
+
 function toDateYM(d){if(!d)return '';if(d instanceof Date){if(isNaN(d.getTime()))return '';return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}var s=(d||'').toString().trim();if(!s)return '';var v=parseFloat(s);if(!isNaN(v)&&v>20000&&v<70000){var ep=new Date(1899,11,30);var dt=new Date(ep.getTime()+v*86400000);if(!isNaN(dt.getTime()))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')}if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s.substring(0,7);if(/^\d{4}-\d{2}$/.test(s))return s;if(/^\d{1,2}[\\/]\d{1,2}[\\/]\d{4}$/.test(s)){var pt=s.split(/[/\\/]/);return pt[2]+'-'+String(parseInt(pt[1])).padStart(2,'0')}if(/^\d{4}$/.test(s))return s;return s.substring(0,7)}
 function dateMatchesYM(dateVal,yr,mo){if(!dateVal)return false;if(dateVal instanceof Date){var dy=String(dateVal.getFullYear());var dm=String(dateVal.getMonth()+1).padStart(2,'0');return dy===yr&&(!mo||dm===mo)}var s=(dateVal||'').toString().trim();if(!s)return false;if(/^\d{4}-\d{2}-\d{2}$/.test(s)){var ds=s.split('-');if(ds[0]===yr&&(!mo||ds[1]===mo))return true}if(/^\d{1,2}[\\/]\d{1,2}[\\/]\d{4}$/.test(s)){var pt=s.split(/[/\\]/);var yy=pt[pt.length-1];var mm=String(parseInt(pt[1])).padStart(2,'0');if(yy===yr&&(!mo||mm===mo))return true}if(/^\d{1,2}[\\/]\d{4}$/.test(s)){var pt2=s.split(/[/\\]/);if(pt2[pt2.length-1]===yr&&(!mo||String(parseInt(pt2[0])).padStart(2,'0')===mo))return true}if(/^\d{4}-\d{2}$/.test(s)){var ds2=s.split('-');if(ds2[0]===yr&&(!mo||ds2[1]===mo))return true}if(/^\d{4}$/.test(s)&&s===yr&&!mo)return true;return false}
 
