@@ -174,8 +174,6 @@ def criar_tarefa(cliente_nome: str, telefone: str, tipo: str, descricao: str, da
 
 def atualizar_lead_para_proposta(nome_cliente: str, telefone: str, ramo: str = None) -> dict | None:
     lead = find_lead_by_telefone(telefone)
-    if not lead:
-        lead = find_lead_by_telefone(telefone) or find_lead_by_telefone(telefone)
     if lead:
         lead["status"] = "Proposta Enviada"
         if ramo:

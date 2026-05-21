@@ -12,7 +12,8 @@ from datetime import datetime
 from supabase_client import (
     criar_cliente, criar_lead, criar_sinistro, criar_tarefa,
     find_cliente_by_telefone, find_cliente, find_apolice,
-    get_table,
+    find_lead_by_telefone,
+    get_table, atualizar_lead_para_proposta,
 )
 
 logger = logging.getLogger(__name__)
@@ -173,7 +174,6 @@ def handle_proposta(triagem: dict, mensagem: str, telefone: str, nome_msg: str |
     acoes = []
     nome = triagem.get("nome_cliente") or nome_msg or f"Cliente {telefone[-8:]}"
 
-    from supabase_client import atualizar_lead_para_proposta
     lead = atualizar_lead_para_proposta(nome, telefone)
     if lead:
         acoes.append({
@@ -202,7 +202,6 @@ def handle_informacao(triagem: dict, mensagem: str, telefone: str, nome_msg: str
     acoes = []
     nome = triagem.get("nome_cliente") or nome_msg or f"Lead {telefone[-8:]}"
 
-    from supabase_client import find_lead_by_telefone
     if not find_lead_by_telefone(telefone):
         interesse = mensagem[:100]
         lead = criar_lead(telefone, nome, interesse, mensagem)

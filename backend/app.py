@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 from datetime import datetime
 
 from flask import Flask, request, jsonify
@@ -24,41 +25,32 @@ CORS(app)
 # Banco de dados - criar tabela de mensagens se não existir
 # ---------------------------------------------------------------------------
 
-SQL_CREATE_MESSAGES = """
-CREATE TABLE IF NOT EXISTS whatsapp_messages (
-    id TEXT PRIMARY KEY,
-    provider TEXT NOT NULL DEFAULT 'unknown',
-    telefone TEXT NOT NULL,
-    nome TEXT,
-    mensagem TEXT NOT NULL,
-    tipo TEXT DEFAULT 'texto',
-    midia_url TEXT,
-    intent TEXT,
-    urgencia TEXT DEFAULT 'baixa',
-    resumo TEXT,
-    response_sent TEXT,
-    response_suggested TEXT,
-    cliente_id TEXT,
-    criado_em TIMESTAMPTZ DEFAULT NOW(),
-    lido BOOLEAN DEFAULT FALSE,
-    acoes JSONB DEFAULT '[]'::jsonb
-);
-"""
 
 def init_db():
     try:
-        get_supabase().rpc("exec_sql", {"sql": SQL_CREATE_MESSAGES}).execute()
+        get_supabase().table("whatsapp_messages").select("id").limit(1).execute()
+        logger.info("Tabela whatsapp_messages ja existe")
     except Exception:
-        try:
-            get_supabase().table("whatsapp_messages").select("id").limit(1).execute()
-        except Exception:
-            sql_lines = [line.strip() for line in SQL_CREATE_MESSAGES.split("\n") if line.strip()]
-            create_stmt = " ".join(sql_lines)
-            logger.info("Tabela whatsapp_messages pode não existir ainda. Execute o SQL manualmente se necessário.")
-            logger.info(f"SQL: {create_stmt}")
+        logger.warning("Tabela whatsapp_messages nao encontrada. Execute o SQL manualmente no Supabase SQL Editor:")
+        logger.warning("https://supabase.com/dashboard/project/mtahebtububylnmauzsa/sql/new")
+        logger.warning("Ou rode o arquivo backend/migration_whatsapp_messages.sql")
 
 with app.app_context():
     init_db()
+
+# ---------------------------------------------------------------------------
+# Rate limiter simples (por telefone, 1 msg a cada 3s)
+# ---------------------------------------------------------------------------
+
+_rate_limit = {}
+
+def _check_rate_limit(telefone: str) -> bool:
+    now = time.time()
+    last = _rate_limit.get(telefone, 0)
+    if now - last < 3:
+        return False
+    _rate_limit[telefone] = now
+    return True
 
 # ---------------------------------------------------------------------------
 # Webhook - receber mensagens do WhatsApp (provider-agnostic)
@@ -79,6 +71,11 @@ def webhook_whatsapp():
 
         telefone = parsed["telefone"]
         mensagem = parsed["mensagem"]
+
+        # Rate limit: max 1 msg por telefone a cada 3s
+        if not _check_rate_limit(telefone):
+            logger.info(f"Rate limit: ignorando msg repetida de {telefone}")
+            return jsonify({"status": "ok", "rate_limited": True}), 200
 
         # Triagem com Gemini
         try:
