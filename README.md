@@ -7,7 +7,7 @@ Sistema de gestão de seguros completo com CRM, integração WhatsApp e intelig�
 [![Supabase](https://img.shields.io/badge/Database-Supabase-green?logo=supabase)](https://supabase.com)
 [![Gemini](https://img.shields.io/badge/AI-Gemini%202.0%20Flash--Lite-yellow?logo=google)](https://ai.google.dev)
 [![Twilio](https://img.shields.io/badge/WhatsApp-Twilio-red?logo=twilio)](https://twilio.com)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 
 ---
 
@@ -199,22 +199,8 @@ O sistema opera **offline-first**: os dados ficam no IndexedDB do navegador e si
 
 ---
 
-## Implantação
+## Direitos Autorais
 
-### Frontend (GitHub Pages)
-```yaml
-# .github/workflows/deploy-pages.yml
-# Deploy automático ao push na branch master (pasta frontend/)
-```
+© 2026 JAF CRM. Todos os direitos reservados.
 
-### Backend (Render)
-```yaml
-# render.yaml
-# Python 3, gunicorn, 2 workers, timeout 120s
-```
 
----
-
-## Licença
-
-MIT
