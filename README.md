@@ -18,11 +18,11 @@ O **JAF CRM** é um sistema completo para corretoras de seguros, desenvolvido pa
 
 ```mermaid
 graph TB
-    A[Usuário] --> B[GitHub Pages<br/>Frontend SPA]
-    B --> C[Supabase<br/>Banco de Dados]
-    B --> D[Cloudflare Worker<br/>Proxy Gemini AI]
-    E[WhatsApp<br/>Cliente] --> F[Twilio]
-    F --> G[Render<br/>Backend Flask]
+    A[Usuário] --> B["GitHub Pages - Frontend SPA"]
+    B --> C["Supabase - Banco de Dados"]
+    B --> D["Cloudflare Worker - Proxy Gemini"]
+    E["WhatsApp - Cliente"] --> F[Twilio]
+    F --> G["Render - Backend Flask"]
     G --> C
     G --> D
     G --> F
@@ -414,24 +414,24 @@ CREATE POLICY "auth_delete" ON public.clientes
 
 ```mermaid
 flowchart TD
-    A[Webhook Twilio<br/>POST /webhook/whatsapp] --> B[app.py]
-    B --> C{Rate limit<br/>3s/telefone?}
-    C -->|Bloqueado| D[return 200 OK<br/>(ignora)]
+    A["Webhook Twilio - POST /webhook/whatsapp"] --> B[app.py]
+    B --> C["Rate limit 3s/telefone?"]
+    C -->|Bloqueado| D["return 200 OK (ignora)"]
     C -->|Liberado| E[Salva mensagem raw]
     E --> F[auto_crm.py]
-    F --> G[Gemini: triagem<br/>intenção + urgência]
-    G --> H{Ação detectada?}
+    F --> G["Gemini: triagem (intencao + urgencia)"]
+    G --> H["Acao detectada?"]
     H -->|lead_novo| I[Criar lead]
     H -->|sinistro| J[Criar sinistro]
     H -->|agenda| K[Criar agenda]
-    H -->|cliente| L[Atualizar/criar cliente]
+    H -->|cliente| L["Atualizar/criar cliente"]
     H -->|responder| M[Sugerir resposta]
-    I --> N[Salvar no Supabase]
+    I --> N["Salvar no Supabase"]
     J --> N
     K --> N
     L --> N
     M --> N
-    N --> O[return 200 OK]
+    N --> O["return 200 OK"]
 ```
 
 **Fluxo de triagem Gemini:**
@@ -450,33 +450,33 @@ Mensagem do cliente → POST /worker (proxy)
 
 ```mermaid
 graph TB
-    subgraph Frontend [Navegador - GitHub Pages]
-        SPA[index.html<br/>SPA Completa]
-        IDB[(IndexedDB<br/>Offline-first)]
+    subgraph Frontend["Navegador - GitHub Pages"]
+        SPA["index.html - SPA Completa"]
+        IDB["(IndexedDB) - Offline-first"]
         SPA --> IDB
     end
 
-    subgraph Backend [Render - Flask]
-        API[app.py<br/>API REST]
-        AUTO[auto_crm.py<br/>Automação]
-        GEM[gemini_client.py<br/>Cliente Gemini]
-        SUP[supabase_client.py<br/>Operações BD]
-        WA[wa_adapter.py<br/>Adaptador WhatsApp]
+    subgraph Backend["Render - Flask"]
+        API["app.py - API REST"]
+        AUTO["auto_crm.py - Automacao"]
+        GEM["gemini_client.py - Cliente Gemini"]
+        SUP["supabase_client.py - Operacoes BD"]
+        WA["wa_adapter.py - Adaptador WhatsApp"]
         API --> AUTO
         API --> WA
         AUTO --> GEM
         AUTO --> SUP
     end
 
-    subgraph Cloud [Infraestrutura]
-        PG[(Supabase PostgreSQL<br/>7 tabelas CRM)]
-        REAL[Supabase Realtime<br/>WebSocket]
-        WORKER[Cloudflare Worker<br/>Proxy Gemini]
-        TW[Twilio API<br/>WhatsApp]
+    subgraph Cloud["Infraestrutura"]
+        PG["(Supabase PG) - 7 tabelas CRM"]
+        REAL["Supabase Realtime - WebSocket"]
+        WORKER["Cloudflare Worker - Proxy Gemini"]
+        TW["Twilio API - WhatsApp"]
     end
 
-    subgraph IA [Google AI]
-        GEMINI[Gemini 2.0<br/>Flash-Lite]
+    subgraph IA["Google AI"]
+        GEMINI["Gemini 2.0 Flash-Lite"]
     end
 
     SPA -->|select/upsert| PG
