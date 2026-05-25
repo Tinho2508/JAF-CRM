@@ -257,27 +257,27 @@ O merge bidirecional entre IndexedDB e Supabase:
 
 ```mermaid
 flowchart TD
-    A[Início sincronizar] --> B{Para cada tabela}
-    B --> C[fetchAll local + remote]
-    C --> D{remoteData.length > 0?}
-    D -->|Sim| E[mergeData: mapa por ID]
-    E --> F[deduplicateRecords]
-    F --> G[Filtrar deleted_ids]
-    G --> H[Deletar do Supabase os IDs em deleted_ids]
-    H --> I[Limpar deleted_ids da tabela]
-    I --> J[Upsert dados locais → Supabase]
-    J --> K[setTable local = merged]
-    D -->|Não| L{localData.length > 0?}
-    L -->|Sim| M[Filtrar deleted_ids]
-    M --> N[Deletar do Supabase]
-    N --> O[Upsert locais → Supabase]
-    O --> P[setTable local]
-    L -->|Não| Q[setTable []]
-    K --> R{Ainda há tabelas?}
+    A["Inicio sincronizar"] --> B{"Para cada tabela?"}
+    B --> C["fetchAll local + remote"]
+    C --> D{"remoteData.length > 0?"}
+    D -->|Sim| E["mergeData: mapa por ID"]
+    E --> F["deduplicateRecords"]
+    F --> G["Filtrar deleted_ids"]
+    G --> H["Deletar do Supabase os IDs em deleted_ids"]
+    H --> I["Limpar deleted_ids da tabela"]
+    I --> J["Upsert dados locais -> Supabase"]
+    J --> K["setTable local = merged"]
+    D -->|Nao| L{"localData.length > 0?"}
+    L -->|Sim| M["Filtrar deleted_ids"]
+    M --> N["Deletar do Supabase"]
+    N --> O["Upsert locais -> Supabase"]
+    O --> P["setTable local"]
+    L -->|Nao| Q["setTable []"]
+    K --> R{"Ainda ha tabelas?"}
     P --> R
     Q --> R
     R -->|Sim| B
-    R -->|Não| S[Atualizar status + render]
+    R -->|Nao| S["Atualizar status + render"]
 ```
 
 **Algoritmo mergeData:**
@@ -333,17 +333,17 @@ retornar unicos
 
 ```mermaid
 flowchart LR
-    A[fetchAll(client, table)] --> B[all = []]
-    B --> C[from = 0]
-    C --> D[pageSize = 1000]
-    D --> E[select * range from..from+pageSize-1]
-    E --> F{res.data?}
-    F -->|Sim| G[all.concat(res.data)]
-    G --> H{res.data.length < pageSize?}
-    H -->|Sim| I[return all]
-    H -->|Não| J[from += pageSize]
+    A["fetchAll(client, table)"] --> B["all = []"]
+    B --> C["from = 0"]
+    C --> D["pageSize = 1000"]
+    D --> E["select * range from..from+pageSize-1"]
+    E --> F{"res.data?"}
+    F -->|Sim| G["all.concat(res.data)"]
+    G --> H{"res.data.length < pageSize?"}
+    H -->|Sim| I["return all"]
+    H -->|Nao| J["from += pageSize"]
     J --> E
-    F -->|Não| K[return all]
+    F -->|Nao| K["return all"]
 ```
 
 ```javascript
@@ -372,17 +372,17 @@ async function fetchAll(client, table) {
 
 ```mermaid
 flowchart TD
-    A[Usuário clica 🗑] --> B[confirm2]
-    B -->|Confirma| C[Filtra registro do array local]
-    C --> D[setTable → IndexedDB]
-    D --> E[addDeletedId na store deleted_ids]
-    E --> F[delete() no Supabase .eq('id', id)]
-    F --> G{Sucesso?}
-    G -->|Sim| H[toast 'Removido']
-    G -->|Não| I[toast 'Erro ao excluir do servidor']
-    H --> J[render()]
+    A["Usuario clica"] --> B["confirm2"]
+    B -->|Confirma| C["Filtra registro do array local"]
+    C --> D["setTable -> IndexedDB"]
+    D --> E["addDeletedId na store deleted_ids"]
+    E --> F["delete() no Supabase .eq('id', id)"]
+    F --> G{"Sucesso?"}
+    G -->|Sim| H["toast 'Removido'"]
+    G -->|Nao| I["toast 'Erro ao excluir do servidor'"]
+    H --> J["render()"]
     I --> J
-    J --> K[enviarTabela → upsert dos restantes]
+    J --> K["enviarTabela -> upsert dos restantes"]
 ```
 
 - `deleted_ids` é uma object store separada no IndexedDB
