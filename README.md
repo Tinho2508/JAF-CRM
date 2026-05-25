@@ -2,6 +2,7 @@
 
 Sistema de gestão de seguros completo com CRM, integração WhatsApp e inteligência artificial.
 
+[![GitHub](https://img.shields.io/badge/Reposit%C3%B3rio-GitHub-black?logo=github)](https://github.com/Tinho2508/JAF-CRM)
 [![GitHub Pages](https://img.shields.io/badge/Frontend-GitHub%20Pages-blue?logo=github)](https://tinho2508.github.io/JAF-CRM/)
 [![Render](https://img.shields.io/badge/Backend-Render-blue?logo=render)](https://jaf-crm-backend.onrender.com)
 [![Supabase](https://img.shields.io/badge/Database-Supabase-green?logo=supabase)](https://supabase.com)
@@ -196,6 +197,319 @@ O sistema opera **offline-first**: os dados ficam no IndexedDB do navegador e si
 - ✅ **Sincronizar** — merge bidirecional com deduplicação
 - ✅ **Backup/restore** via JSON
 - ✅ **Importação** de planilhas Excel (.xlsx)
+
+---
+
+## Lógica do Sistema e Algoritmos
+
+### 1. Fluxo de Inicialização (initApp)
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant B as Navegador
+    participant I as IndexedDB
+    participant S as Supabase
+
+    B->>B: DOMContentLoaded
+    B->>B: Carrega dark mode
+    B->>B: Cria cliente Supabase (anônimo)
+    B->>I: init() → abre DB v31
+    Note over B,I: Cria object stores se não existirem
+    B->>I: seedData() (se primeira vez)
+    B->>I: refreshCache() → carrega tudo na RAM
+    B->>B: cleanupEmptyRecords()
+    B->>B: render() + updateBadges()
+    B->>S: setTimeout 500ms → fetchAll() paginado
+    S-->>B: Dados completos
+    B->>I: deduplicateRecords() + setTable()
+    Note over B,I: Colapsa duplicatas por nome/chave
+```
+
+### 2. Fluxo de Login (fazerLogin → entrarApp)
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant B as Navegador
+    participant S as Supabase
+
+    U->>B: Clica "Entrar"
+    B->>B: Valida email/senha
+    B->>S: signInWithPassword()
+    S-->>B: Sessão autenticada
+    B->>B: Armazena client autenticado
+    B->>B: Oculta tela login, exibe app
+    B->>B: refreshCache() (IndexedDB)
+    loop Para cada tabela
+        B->>S: fetchAll() paginado (1000/request)
+        S-->>B: Todos registros
+        B->>B: deduplicateRecords()
+        B->>I: setTable() — substitui local
+    end
+    B->>B: render() + toast "Dados carregados!"
+    B->>S: iniciarRealtime() — channel postgres_changes
+```
+
+### 3. Algoritmo de Sincronização (sincronizar)
+
+O merge bidirecional entre IndexedDB e Supabase:
+
+```mermaid
+flowchart TD
+    A[Início sincronizar] --> B{Para cada tabela}
+    B --> C[fetchAll local + remote]
+    C --> D{remoteData.length > 0?}
+    D -->|Sim| E[mergeData: mapa por ID]
+    E --> F[deduplicateRecords]
+    F --> G[Filtrar deleted_ids]
+    G --> H[Deletar do Supabase os IDs em deleted_ids]
+    H --> I[Limpar deleted_ids da tabela]
+    I --> J[Upsert dados locais → Supabase]
+    J --> K[setTable local = merged]
+    D -->|Não| L{localData.length > 0?}
+    L -->|Sim| M[Filtrar deleted_ids]
+    M --> N[Deletar do Supabase]
+    N --> O[Upsert locais → Supabase]
+    O --> P[setTable local]
+    L -->|Não| Q[setTable []]
+    K --> R{Ainda há tabelas?}
+    P --> R
+    Q --> R
+    R -->|Sim| B
+    R -->|Não| S[Atualizar status + render]
+```
+
+**Algoritmo mergeData:**
+```
+Entrada: local (Array), remote (Array)
+Saída:   Array mesclado
+
+mapa = {}
+para cada item em local:
+    mapa[item.id] = item
+para cada item em remote:
+    mapa[item.id] = item
+retornar Object.values(mapa)
+```
+- União por ID: registros locais e remotos com o mesmo ID são mesclados (remoto sobrescreve local)
+- Garante que nenhum registro seja perdido
+
+**Algoritmo deduplicateRecords:**
+```
+Entrada: tabela (string), data (Array)
+Saída:   Array sem duplicatas
+
+chaves = {
+  clientes: 'nome',
+  apolices: 'numero_apolice',
+  leads:    'nome_cliente',
+  propostas:'numero_proposta'
+}
+key = chaves[tabela] ou null
+se key for null: retornar data
+
+vistos = {}  // mapa: valor_normalizado → registro
+unicos = []
+para cada item em data:
+    val = item[key]
+    se val vazio: adicionar a unicos; continuar
+    normalizado = val.trim().toLowerCase()
+    se não está em vistos:
+        vistos[normalizado] = item
+        adicionar a unicos
+    senão:
+        existente = vistos[normalizado]
+        se item.criado_em >= existente.criado_em:
+            substituir existente por item em unicos
+            vistos[normalizado] = item
+retornar unicos
+```
+- Mantém o registro **mais recente** (por `criado_em`) quando encontra o mesmo nome
+- Preserva registros sem valor na chave (não os descarta)
+- Tabelas sem chave definida (producao, sinistros, agenda) não são deduplicadas
+
+### 4. Algoritmo de Paginação (fetchAll)
+
+```mermaid
+flowchart LR
+    A[fetchAll(client, table)] --> B[all = []]
+    B --> C[from = 0]
+    C --> D[pageSize = 1000]
+    D --> E[select * range from..from+pageSize-1]
+    E --> F{res.data?}
+    F -->|Sim| G[all.concat(res.data)]
+    G --> H{res.data.length < pageSize?}
+    H -->|Sim| I[return all]
+    H -->|Não| J[from += pageSize]
+    J --> E
+    F -->|Não| K[return all]
+```
+
+```javascript
+async function fetchAll(client, table) {
+  var all = [];
+  var from = 0;
+  var pageSize = 1000;
+  while (true) {
+    var res = await client
+      .from(table)
+      .select('*')
+      .range(from, from + pageSize - 1);
+    if (res.error || !res.data || !res.data.length) break;
+    all = all.concat(res.data);
+    if (res.data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+```
+- Supabase limita `select('*')` a 1000 linhas por requisição
+- `fetchAll` faz requisições sequenciais com `.range()` até obter menos de 1000 linhas
+- Usado em: `entrarApp`, `initApp` (auto-sync), `sincronizar`, `forcarDownload`
+
+### 5. Fluxo de Exclusão com Deleção Remota
+
+```mermaid
+flowchart TD
+    A[Usuário clica 🗑] --> B[confirm2]
+    B -->|Confirma| C[Filtra registro do array local]
+    C --> D[setTable → IndexedDB]
+    D --> E[addDeletedId na store deleted_ids]
+    E --> F[delete() no Supabase .eq('id', id)]
+    F --> G{Sucesso?}
+    G -->|Sim| H[toast 'Removido']
+    G -->|Não| I[toast 'Erro ao excluir do servidor']
+    H --> J[render()]
+    I --> J
+    J --> K[enviarTabela → upsert dos restantes]
+```
+
+- `deleted_ids` é uma object store separada no IndexedDB
+- Usada pelo `sincronizar()` para deletar registros órfãos do Supabase
+- Após delete bem-sucedido no Supabase, `deleted_ids` são limpos na sincronização
+
+### 6. Estratégia de Políticas RLS (Row Level Security)
+
+```sql
+-- Para cada tabela CRM (clientes, apolices, etc.):
+CREATE POLICY "auth_select" ON public.clientes
+  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "auth_insert" ON public.clientes
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "auth_update" ON public.clientes
+  FOR UPDATE USING (auth.role() = 'authenticated')
+            WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "auth_delete" ON public.clientes
+  FOR DELETE USING (auth.role() = 'authenticated');
+```
+
+- **4 políticas independentes** por tabela (vs. `FOR ALL` sem `WITH CHECK` que bloqueava INSERT)
+- `USING` → controla quais linhas são visíveis/afetadas (SELECT, UPDATE, DELETE)
+- `WITH CHECK` → controla quais novas linhas podem ser inseridas (INSERT, UPDATE)
+- Autenticação feita via `supabase.auth.signInWithPassword()` no frontend
+- Tabela `whatsapp_messages` usa política `FOR ALL` para anon (webhook público)
+
+### 7. Arquitetura do Auto-CRM (Backend)
+
+```mermaid
+flowchart TD
+    A[Webhook Twilio<br/>POST /webhook/whatsapp] --> B[app.py]
+    B --> C{Rate limit<br/>3s/telefone?}
+    C -->|Bloqueado| D[return 200 OK<br/>(ignora)]
+    C -->|Liberado| E[Salva mensagem raw]
+    E --> F[auto_crm.py]
+    F --> G[Gemini: triagem<br/>intenção + urgência]
+    G --> H{Ação detectada?}
+    H -->|lead_novo| I[Criar lead]
+    H -->|sinistro| J[Criar sinistro]
+    H -->|agenda| K[Criar agenda]
+    H -->|cliente| L[Atualizar/criar cliente]
+    H -->|responder| M[Sugerir resposta]
+    I --> N[Salvar no Supabase]
+    J --> N
+    K --> N
+    L --> N
+    M --> N
+    N --> O[return 200 OK]
+```
+
+**Fluxo de triagem Gemini:**
+```
+Mensagem do cliente → POST /worker (proxy)
+  → Gemini 2.0 Flash-Lite analisa:
+    - intenção (lead_novo, sinistro, agendar, etc.)
+    - urgência (alta, media, baixa)
+    - dados estruturados extraídos
+    - resposta sugerida
+  → Backend executa ações no CRM
+  → Salva tudo em whatsapp_messages
+```
+
+### 8. Diagrama de Componentes (Visão 360°)
+
+```mermaid
+graph TB
+    subgraph Frontend [Navegador - GitHub Pages]
+        SPA[index.html<br/>SPA Completa]
+        IDB[(IndexedDB<br/>Offline-first)]
+        SPA --> IDB
+    end
+
+    subgraph Backend [Render - Flask]
+        API[app.py<br/>API REST]
+        AUTO[auto_crm.py<br/>Automação]
+        GEM[gemini_client.py<br/>Cliente Gemini]
+        SUP[supabase_client.py<br/>Operações BD]
+        WA[wa_adapter.py<br/>Adaptador WhatsApp]
+        API --> AUTO
+        API --> WA
+        AUTO --> GEM
+        AUTO --> SUP
+    end
+
+    subgraph Cloud [Infraestrutura]
+        PG[(Supabase PostgreSQL<br/>7 tabelas CRM)]
+        REAL[Supabase Realtime<br/>WebSocket]
+        WORKER[Cloudflare Worker<br/>Proxy Gemini]
+        TW[Twilio API<br/>WhatsApp]
+    end
+
+    subgraph IA [Google AI]
+        GEMINI[Gemini 2.0<br/>Flash-Lite]
+    end
+
+    SPA -->|select/upsert| PG
+    SPA -->|subscribe| REAL
+    REAL -->|notify| SPA
+    SPA -->|POST /worker| WORKER
+    WORKER -->|API key oculta| GEMINI
+    TW -->|POST webhook| API
+    API -->|POST| TW
+    API -->|POST /worker| WORKER
+```
+
+### 9. Diagrama de Estados (Registros)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Offline: Página carregada
+    Offline --> Online: Login / Auto-sync
+    Online --> Offline: Logout / Falha de rede
+    
+    state Online {
+        [*] --> Local: Edição do usuário
+        Local --> Sincronizado: enviarTabela()
+        Sincronizado --> Local: Edição / Exclusão
+        Local --> Remoto: Alteração via WhatsApp
+        Remoto --> Local: Realtime notification
+    }
+    
+    state Sincronizado {
+        [*] --> Merged: sincronizar()
+        Merged --> [*]: Deduplicado
+    }
+```
 
 ---
 
