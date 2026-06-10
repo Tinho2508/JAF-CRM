@@ -1,4 +1,4 @@
-var CACHE = 'jaf-crm-v1';
+var CACHE = 'jaf-crm-v2';
 var URLS = [
   '/JAF-CRM/',
   '/JAF-CRM/index.html',
